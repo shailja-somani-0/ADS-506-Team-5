@@ -1,0 +1,108 @@
+---
+title: "ADS506 Assignment 1.2 - Beijing Air Quality Forecasting"
+author: "Caleb McCurdy"
+date: "2023-10-30"
+output: pdf_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE, include = TRUE)
+```
+
+```{r warning=FALSE, message=FALSE}
+# import packages
+library(readxl)
+library(tidyverse)
+library(fpp2)
+library(zoo)
+set.seed(506)
+```
+
+## Data Source
+
+This data was downloaded from the UCI Machine Learning Repository. The dataset is for air quality at the Dongsi nationally-controlled air-quality monitoring site in Beijing and is collected hourly from March 2013 until February 2017. The data includes 6 main air pollutants and 6 relevant meteorological variables, but only some will be explored. The original data is available at https://archive.ics.uci.edu/dataset/501/beijing+multi+site+air+quality+data. The dataset for this site is 2.6 MB with 35,064 records (hourly reports). I chose this dataset due to experiencing poor air quality conditions in Beijing firsthand in March of 2016. Further, the time series data will enable future forecast predictions.
+
+
+## Importing the Data
+
+Only one site (Dongsi) is chosen for this import. Because the year, month, day, and hour values were reported in separate variables, they need to be combined into a datetime object. Missing values are imputed by taking on the previous value as this was the emission level only an hour prior. A summary of the values for the explored pollutants can be seen below.
+
+```{r warning=FALSE, message=FALSE}
+# import the data
+air_df <- read_csv("PRSA_Data_Dongsi_20130301-20170228.csv")
+
+# transform the data
+air <- na.locf(air_df, na.rm = FALSE)
+air$datetime <- as.POSIXct(paste(air$year, air$month, air$day, air$hour, sep="-"), format="%Y-%m-%d-%H")
+
+# view the data
+View(air)
+```
+
+```{r}
+PM2.5_daily <- air %>%
+  group_by(Date = format(datetime, "%Y-%m-%d")) %>%
+  summarise(Average = mean(PM2.5))
+
+PM2.5_monthly <- air %>%
+  group_by(Month = format(datetime, "%Y-%m")) %>%
+  summarise(Average = mean(PM2.5))
+
+O3_daily <- air %>%
+  group_by(Date = format(datetime, "%Y-%m-%d")) %>%
+  summarise(Average = mean(O3))
+
+O3_monthly <- air %>%
+  group_by(Month = format(datetime, "%Y-%m")) %>%
+  summarise(Average = mean(O3))
+
+summary(PM2.5_daily)
+summary(PM2.5_monthly)
+summary(O3_daily)
+summary(O3_monthly)
+```
+
+
+## Time Series Plot
+
+```{r}
+#view(PM2.5_monthly)
+#view(O3_daily)
+```
+
+
+```{r}
+# create time series object
+PM_m_TS <- ts(PM2.5_monthly$Average, start = c(2013, 3), frequency = 12)
+O3_d_TS <- ts(O3_daily$Average, start = c(2103, 60), frequency = 365)
+
+# plot the time series with the mean labeled in red
+autoplot(PM_m_TS) +
+  labs(title = "Monthly PM2.5 Emissions in Beijing",
+       x = "Date",
+       y = "Average PM2.5 Emissions") +
+  theme_minimal() +
+  geom_hline(yintercept = mean(PM_m_TS), linetype = "dashed", color = "red")
+
+# plot the time series with the mean labeled in red
+autoplot(O3_d_TS) +
+  labs(title = "Daily O3 Emissions in Beijing",
+       x = "Date",
+       y = "Average O3 Emissions") +
+  theme_minimal() +
+  geom_hline(yintercept = mean(O3_d_TS), linetype = "dashed", color = "red")
+```
+
+## Discussion
+
+The data appears to have a constant trend that fluctuates around the level. There may be some additive seasonality as well for different pollutants which appears in the O3 emissions time plots. The random spike seen in the daily O3 emission average plot may be noise rather than a correctly reported value. This time series data has societal relevance as we can use forecasting to protect the Beijing residents by being prepared for times with poor air quality due to high pollutant levels. Further, it can be used by businesses such as those making face coverings to better market their products. This data can be forecasted several months in advance or on a smaller timescale that would allow for more accurate predictions. An advised forecasting period would be a 6-month-ahead forecast. The other pollutants not explored in this project can also be used to garner the same intended impacts. 
+
+
+## References
+
+California Air Resources Board. (n.d.). Inhalable Particulate Matter and Health (PM2.5 and PM10) | California Air Resources Board. Ww2.Arb.ca.gov. https://ww2.arb.ca.gov/resources/inhalable-particulate-matter-and-health#:~:text=Particles%20are%20defined%20by%20their
+
+UCI Machine Learning Repository. (n.d.). Archive.ics.uci.edu. https://archive.ics.uci.edu/dataset/501/beijing+multi+site+air+quality+data
+
+Zeileis, A., & Grothendieck, G. (n.d.). zoo: An S3 Class and Methods for Indexed Totally Ordered Observations. Retrieved October 31, 2023, from https://citeseerx.ist.psu.edu/document?repid=rep1&type=pdf&doi=da6cede528db3a97150fa6716562ea5410033821#:~:text=zoo%20is%20an%20R%20package
+
