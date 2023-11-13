@@ -1,0 +1,159 @@
+---
+title: "EDA into Beijing Air Quality Forecasting Data"
+author: "Caleb McCurdy"
+date: "2023-10-30"
+output: pdf_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE, include = TRUE)
+```
+
+```{r warning=FALSE, message=FALSE}
+# import packages
+library(readxl)
+library(tidyverse)
+library(fpp2)
+library(zoo)
+set.seed(506)
+```
+
+## Data Source
+
+This data was downloaded from the UCI Machine Learning Repository. The dataset is for air quality at the Dongsi nationally-controlled air-quality monitoring site in Beijing and is collected hourly from March 2013 until February 2017. The data includes 6 main air pollutants and 6 relevant meteorological variables, but only some will be explored. The original data is available at https://archive.ics.uci.edu/dataset/501/beijing+multi+site+air+quality+data. The dataset for this site is 2.6 MB with 35,064 records (hourly reports). I chose this dataset due to experiencing poor air quality conditions in Beijing firsthand in March of 2016. Further, the time series data will enable future forecast predictions.
+
+
+## Importing the Data
+
+Only one site (Dongsi) is chosen for this import. Because the year, month, day, and hour values were reported in separate variables, they need to be combined into a datetime object. Missing values are imputed by taking on the previous value as this was the emission level only an hour prior. A summary of the values for the explored pollutants can be seen below.
+
+```{r warning=FALSE, message=FALSE}
+# import the data
+air_df <- read_csv("PRSA_Data_20130301-20170228/PRSA_Data_Nongzhanguan_20130301-20170228.csv")
+
+# Summarize the data & look at nulls per column specifically
+summary(air_df)
+```
+
+```{r}
+# List all CSV files in the current working directory
+subfolder_name <- "PRSA_Data_20130301-20170228"
+csv_files <- list.files(path = subfolder_name, pattern = "*.csv")
+
+# Initialize variables to keep track of the best file and its statistics
+best_file_o3 <- NULL
+best_file_column <- NULL
+best_o3_count <- Inf
+best_column_count <- Inf
+best_column_name <- NULL
+
+# Iterate through each CSV file
+for (file in csv_files) {
+  # Read the CSV file into a data frame
+  df <- read.csv(file.path(subfolder_name, file))
+  
+  # Calculate the number of nulls in the "O3" column
+  o3_null_count <- sum(is.na(df$O3))
+  
+  # Calculate the number of nulls in each specified column
+  column_null_counts <- sapply(c("PM2.5", "PM10", "SO2", "NO2", "O3", "CO"), function(col_name) {
+    sum(is.na(df[, col_name]))
+  })
+
+  # Check if this file has fewer nulls in the "O3" column
+  if (o3_null_count < best_o3_count) {
+    best_o3_count <- o3_null_count
+    best_file_o3 <- file
+  }
+  
+  # Check if this file has a column with fewer nulls
+  min_column_null_count <- min(column_null_counts)
+  if (min_column_null_count < best_column_count) {
+    best_column_count <- min_column_null_count
+    best_file_column <- file
+    best_column_name <- names(column_null_counts)[which.min(column_null_counts)]
+  }
+}
+
+# Print the results
+cat("CSV file with the lowest null count in 'O3' column:", best_file_o3, "\n")
+cat("Null count in 'O3' column:", best_o3_count, "\n")
+cat("\nCSV file and column with the lowest null count in specified columns:\n")
+cat("CSV file:", best_file_column, "\n")
+cat("Column with the lowest null count:", best_column_name, "\n")
+cat("Null count in the specified columns:", best_column_count, "\n")
+```
+
+
+```{r warning=FALSE, message=FALSE}
+# transform the data
+air <- na.locf(air_df, na.rm = FALSE)
+air$datetime <- as.POSIXct(paste(air$year, air$month, air$day, air$hour, sep="-"), format="%Y-%m-%d-%H")
+
+# view the data
+#View(air)
+```
+
+```{r}
+PM2.5_daily <- air %>%
+  group_by(Date = format(datetime, "%Y-%m-%d")) %>%
+  summarise(Average = mean(PM2.5))
+
+PM2.5_monthly <- air %>%
+  group_by(Month = format(datetime, "%Y-%m")) %>%
+  summarise(Average = mean(PM2.5))
+
+O3_daily <- air %>%
+  group_by(Date = format(datetime, "%Y-%m-%d")) %>%
+  summarise(Average = mean(O3))
+
+O3_monthly <- air %>%
+  group_by(Month = format(datetime, "%Y-%m")) %>%
+  summarise(Average = mean(O3))
+
+summary(PM2.5_daily)
+summary(PM2.5_monthly)
+summary(O3_daily)
+summary(O3_monthly)
+```
+
+
+## Time Series Plot
+
+```{r}
+#view(PM2.5_monthly)
+#view(O3_daily)
+```
+
+
+```{r}
+# create time series object
+O3_m_TS <- ts(O3_monthly$Average, start = c(2013, 3), frequency = 12)
+O3_d_TS <- ts(O3_daily$Average, start = c(2103, 60), frequency = 365)
+
+# plot the time series with the mean labeled in red
+autoplot(O3_m_TS) +
+  labs(title = "Monthly O3 Emissions in Nongzhanguan",
+       x = "Date",
+       y = "Average O3 Emissions") +
+  theme_minimal() +
+  geom_hline(yintercept = mean(O3_m_TS), linetype = "dashed", color = "red")
+
+# plot the time series with the mean labeled in red
+autoplot(O3_d_TS) +
+  labs(title = "Daily O3 Emissions in Nongzhanguan",
+       x = "Date",
+       y = "Average O3 Emissions") +
+  theme_minimal() +
+  geom_hline(yintercept = mean(O3_d_TS), linetype = "dashed", color = "red")
+```
+
+
+## References
+
+California Air Resources Board. (n.d.). Inhalable Particulate Matter and Health (PM2.5 and PM10) | California Air Resources Board. Ww2.Arb.ca.gov. https://ww2.arb.ca.gov/resources/inhalable-particulate-matter-and-health#:~:text=Particles%20are%20defined%20by%20their
+
+UCI Machine Learning Repository. (n.d.). Archive.ics.uci.edu. https://archive.ics.uci.edu/dataset/501/beijing+multi+site+air+quality+data
+
+Zeileis, A., & Grothendieck, G. (n.d.). zoo: An S3 Class and Methods for Indexed Totally Ordered Observations. Retrieved October 31, 2023, from https://citeseerx.ist.psu.edu/document?repid=rep1&type=pdf&doi=da6cede528db3a97150fa6716562ea5410033821#:~:text=zoo%20is%20an%20R%20package
+
