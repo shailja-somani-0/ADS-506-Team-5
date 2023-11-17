@@ -1,0 +1,108 @@
+---
+title: 'Team 5 Final Project: Forecasting O3 Pollution in Beijing, China'
+author: "Shailja Somani"
+date: "November 10, 2023"
+output: pdf_document
+---
+
+```{r, echo = FALSE}
+# Import packages
+library(fpp3)
+library(tidyverse)
+```
+
+## Data Importing, Preprocessing, & EDA
+
+### Importing the Data
+The dataset includes data collected hourly from March 2013 to February 2017 at 12 different air pollution monitoring sites in Beijing. We will only use one site's data in this project and determine which to use by identifying which file has the lowest value of nulls in the O3 data, which is identified below. 
+
+```{r}
+# List all CSV files in the current working directory
+subfolder_name <- "PRSA_Data_20130301-20170228"
+csv_files <- list.files(path = subfolder_name, pattern = "*.csv")
+
+# Initialize variables to keep track of the best file and its statistics
+best_file_o3 <- NULL
+best_o3_count <- Inf
+
+# Iterate through each CSV file
+for (file in csv_files) {
+  # Read the CSV file into a data frame
+  df <- read.csv(file.path(subfolder_name, file))
+  
+  # Calculate the number of nulls in the "O3" column
+  o3_null_count <- sum(is.na(df$O3))
+
+  # Check if this file has fewer nulls in the "O3" column
+  if (o3_null_count < best_o3_count) {
+    best_o3_count <- o3_null_count
+    best_file_o3 <- file
+  }
+
+}
+
+# Print the results
+cat("CSV file with the lowest null count in 'O3' column:", best_file_o3, "\n")
+cat("Null count in 'O3' column:", best_o3_count, "\n")
+```
+
+Thus, from here on out, we will only use the Nongzhanguan site data. 
+
+```{r warning=FALSE}
+# import the data
+air_df <- read_csv("PRSA_Data_20130301-20170228/PRSA_Data_Nongzhanguan_20130301-20170228.csv", show_col_types = FALSE)
+
+# Summarize the data & look at nulls per column specifically
+summary(air_df)
+```
+
+### Data Pre-Processing
+
+```{r}
+# replace nulls with last value
+air <- na.locf(air_df, na.rm = FALSE)
+# create one datetime field from all individual date & time fields
+air$datetime <- as.POSIXct(paste(air$year, air$month, air$day, air$hour, sep="-"), format="%Y-%m-%d-%H")
+head(air)
+```
+
+### Time Series Plots
+
+```{r}
+O3_daily <- air %>%
+  group_by(Date = format(datetime, "%Y-%m-%d")) %>%
+  summarise(Average = mean(O3))
+
+O3_monthly <- air %>%
+  group_by(Month = format(datetime, "%Y-%m")) %>%
+  summarise(Average = mean(O3))
+
+summary(O3_daily)
+summary(O3_monthly)
+```
+
+```{r}
+# create time series object
+O3_m_TS <- ts(O3_monthly$Average, start = c(2013, 3), frequency = 12)
+O3_d_TS <- ts(O3_daily$Average, start = c(2103, 60), frequency = 365)
+
+# plot the time series with the mean labeled in red
+autoplot(O3_m_TS) +
+  labs(title = "Monthly O3 Emissions in Nongzhanguan",
+       x = "Date",
+       y = "Average O3 Emissions") +
+  theme_minimal() +
+  geom_hline(yintercept = mean(O3_m_TS), linetype = "dashed", color = "red")
+
+# plot the time series with the mean labeled in red
+autoplot(O3_d_TS) +
+  labs(title = "Daily O3 Emissions in Nongzhanguan",
+       x = "Date",
+       y = "Average O3 Emissions") +
+  theme_minimal() +
+  geom_hline(yintercept = mean(O3_d_TS), linetype = "dashed", color = "red")
+```
+
+
+
+
