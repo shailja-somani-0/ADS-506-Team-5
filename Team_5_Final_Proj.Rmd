@@ -78,6 +78,37 @@ air$datetime <- as.POSIXct(paste(air$year, air$month, air$day, air$hour, sep="-"
 head(air)
 ```
 
+## EDA
+
+```{r EDA}
+
+# Dimensions in Data Set
+print("Data set Dimensions")
+dim(air)
+
+# Data set Summary
+print("Dataset Summary")
+summary(air)
+
+#count total missing values in each column
+print("There are no NULL Values in the Dataset")
+sapply(air, function(x) sum(is.na(x)))
+
+
+#correlation matrix of (rounded to 2 decimal places)
+air_quality_corr = round(cor(air[c('PM2.5','PM10','SO2','NO2','CO','O3','TEMP','WSPM')]), 2)
+corrplot(air_quality_corr, method = 'number', order = 'FPC', type = 'upper', diag = FALSE, title="Correlation between the Air Pollutants", mar=c(0,0,1,0))
+#carbon monoxide, lead, ground-level ozone, nitrogen dioxide, particulate matter, and sulfur dioxide.
+
+# Daily Ozone (O3) Readings
+ggplot(data=air, aes(x=datetime,y=O3)) + 
+  geom_line(size =1) +
+  xlab("Datetime") + ylab("Ozone (O3)") +
+  ggtitle("Daily Ozone Readings from Nongzhanguan") +
+  theme_bw() +
+  theme(plot.title = element_text(size=14, face="bold"), axis.title = element_text(size=12), axis.text = element_text(size=10))
+
+```
 ### Time Series Plots
 
 ```{r}
