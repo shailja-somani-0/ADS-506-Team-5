@@ -108,6 +108,32 @@ ggplot(data=air, aes(x=datetime,y=O3)) +
   theme_bw() +
   theme(plot.title = element_text(size=14, face="bold"), axis.title = element_text(size=12), axis.text = element_text(size=10))
 
+# Daily Sulfur Dioxide (SO2) Readings
+ggplot(data=air, aes(x=datetime,y=SO2)) + 
+  geom_line(size =1) +
+  xlab("Datetime") + ylab("Sulfur Dioxide (SO2)") +
+  ggtitle("Daily Sulfur Dioxide Readings from Nongzhanguan") +
+  theme_bw() +
+  theme(plot.title = element_text(size=14, face="bold"), axis.title = element_text(size=12), axis.text = element_text(size=10))
+
+
+# Daily Carbon Monoxide (CO) Readings
+ggplot(data=air, aes(x=datetime,y=SO2)) + 
+  geom_line(size =1) +
+  xlab("Datetime") + ylab("Carbon Monoxide (CO)") +
+  ggtitle("Daily Carbon Monoxide Readings from Nongzhanguan") +
+  theme_bw() +
+  theme(plot.title = element_text(size=14, face="bold"), axis.title = element_text(size=12), axis.text = element_text(size=10))
+
+
+# Daily Nitrogen Dioxide (NO2) Readings
+ggplot(data=air, aes(x=datetime,y=SO2)) + 
+  geom_line(size =1) +
+  xlab("Datetime") + ylab("Nitrogen Dioxide (NO2)") +
+  ggtitle("Daily Nitrogen Dioxide Readings from Nongzhanguan") +
+  theme_bw() +
+  theme(plot.title = element_text(size=14, face="bold"), axis.title = element_text(size=12), axis.text = element_text(size=10))
+
 ```
 
 
