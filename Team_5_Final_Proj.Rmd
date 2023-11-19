@@ -109,6 +109,8 @@ ggplot(data=air, aes(x=datetime,y=O3)) +
   theme(plot.title = element_text(size=14, face="bold"), axis.title = element_text(size=12), axis.text = element_text(size=10))
 
 ```
+
+
 ### Time Series Plots
 
 ```{r}
