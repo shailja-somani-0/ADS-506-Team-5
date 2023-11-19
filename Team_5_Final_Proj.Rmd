@@ -7,8 +7,20 @@ output: pdf_document
 
 ```{r, echo = FALSE}
 # Import packages
-library(fpp3)
+library(readxl)
 library(tidyverse)
+library(fpp2)
+library(quantmod)
+library(dplyr)
+library(readr)
+library(zoo)
+library(fpp3)
+library(gridExtra)
+library(lmtest)
+library(tsibble)
+library(ggplot2)
+library(caret)
+set.seed(506)
 ```
 
 ## Data Importing, Preprocessing, & EDA
@@ -71,20 +83,22 @@ head(air)
 ```{r}
 O3_daily <- air %>%
   group_by(Date = format(datetime, "%Y-%m-%d")) %>%
-  summarise(Average = mean(O3))
+  summarise(Daily_O3 = mean(O3))
 
 O3_monthly <- air %>%
   group_by(Month = format(datetime, "%Y-%m")) %>%
-  summarise(Average = mean(O3))
+  summarise(Monthly_O3 = mean(O3))
 
 summary(O3_daily)
 summary(O3_monthly)
 ```
 
+
+
 ```{r}
 # create time series object
-O3_m_TS <- ts(O3_monthly$Average, start = c(2013, 3), frequency = 12)
-O3_d_TS <- ts(O3_daily$Average, start = c(2103, 60), frequency = 365)
+O3_m_TS <- ts(O3_monthly$Monthly_O3, start = c(2013, 3), frequency = 12)
+O3_d_TS <- ts(O3_daily$Daily_O3, start = c(2013, 60), frequency = 365)
 
 # plot the time series with the mean labeled in red
 autoplot(O3_m_TS) +
@@ -102,6 +116,105 @@ autoplot(O3_d_TS) +
   theme_minimal() +
   geom_hline(yintercept = mean(O3_d_TS), linetype = "dashed", color = "red")
 ```
+
+
+We can create time plots of the other numerical series (Temperature, Pressure, Dew Point Temperature, Precipitation, and Wind Speed). Additionally, we can create scatter plots of the ground-level ozone emissions series against each of these five series (each point in the scatter plot represents one day). From the charts, we can determine which of the five series will potentially be useful as external predictors in a regression model for forecasting O3 emissions?
+
+```{r}
+# Time plots of other numerical series
+
+temp_daily <- air %>%
+  group_by(Date = format(datetime, "%Y-%m-%d")) %>%
+  summarise(Daily_TEMP = mean(TEMP))
+
+pres_daily <- air %>%
+  group_by(Date = format(datetime, "%Y-%m-%d")) %>%
+  summarise(Daily_PRES = mean(PRES))
+
+dewp_daily <- air %>%
+  group_by(Date = format(datetime, "%Y-%m-%d")) %>%
+  summarise(Daily_DEWP = mean(DEWP))
+
+rain_daily <- air %>%
+  group_by(Date = format(datetime, "%Y-%m-%d")) %>%
+  summarise(Daily_RAIN = mean(RAIN))
+
+wspm_daily <- air %>%
+  group_by(Date = format(datetime, "%Y-%m-%d")) %>%
+  summarise(Daily_WSPM = mean(WSPM))
+
+daily.temp.ts <- ts(temp_daily$Daily_TEMP, start = c(2013, 60), frequency = 365)
+daily.pres.ts <- ts(pres_daily$Daily_PRES, start = c(2013, 60), frequency = 365)
+daily.dewp.ts <- ts(dewp_daily$Daily_DEWP, start = c(2013, 60), frequency = 365)
+daily.rain.ts <- ts(rain_daily$Daily_RAIN, start = c(2013, 60), frequency = 365)
+daily.wspm.ts <- ts(wspm_daily$Daily_WSPM, start = c(2013, 60), frequency = 365)
+
+autoplot(daily.temp.ts) +
+  labs(title = "Daily Average Temperature in Beijing",
+       y = "") +
+  theme_minimal()
+
+autoplot(daily.pres.ts) +
+  labs(title = "Daily Average Pressure in Beijing",
+       y = "") +
+  theme_minimal()
+
+autoplot(daily.dewp.ts) +
+  labs(title = "Daily Average Dew Point Temperature in Beijing",
+       y = "") +
+  theme_minimal()
+
+autoplot(daily.rain.ts) +
+  labs(title = "Daily Average Precipitaion in Beijing",
+       y = "") +
+  theme_minimal()
+
+autoplot(daily.wspm.ts) +
+  labs(title = "Daily Average Wind Speed in Beijing",
+       y = "") +
+  theme_minimal()
+```
+
+```{r}
+# create new data frame with daily averages of O3 and external predictors
+air_daily <- O3_daily
+names(air_daily)[names(air_daily) == "Daily_O3"] <- "O3"
+
+air_daily$TEMP <- temp_daily$Daily_TEMP
+air_daily$PRES <- pres_daily$Daily_PRES
+air_daily$DEWP <- dewp_daily$Daily_DEWP
+air_daily$RAIN <- rain_daily$Daily_RAIN
+air_daily$WSPM <- wspm_daily$Daily_WSPM
+```
+
+```{r}
+# scatter plots
+
+ggplot(air_daily, aes(x = TEMP, y = O3)) +
+  geom_point() +
+  labs(title = "Temperature vs O3 Emissions")
+
+ggplot(air_daily, aes(x = PRES, y = O3)) +
+  geom_point() +
+  labs(title = "Pressure vs O3 Emissions")
+
+ggplot(air_daily, aes(x = DEWP, y = O3)) +
+  geom_point() +
+  labs(title = "Dew Point Temperature vs O3 Emissions")
+
+ggplot(air_daily, aes(x = RAIN, y = O3)) +
+  geom_point() +
+  labs(title = "Precipitation vs O3 Emissions")
+
+ggplot(air_daily, aes(x = WSPM, y = O3)) +
+  geom_point() +
+  labs(title = "Wind Speed vs O3 Emissions")
+```
+
+
+
+
+
 
 
 
