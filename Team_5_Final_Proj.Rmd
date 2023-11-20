@@ -81,20 +81,6 @@ head(air)
 ## EDA
 
 ```{r EDA}
-
-# Dimensions in Data Set
-print("Data set Dimensions")
-dim(air)
-
-# Data set Summary
-print("Dataset Summary")
-summary(air)
-
-#count total missing values in each column
-print("There are no NULL Values in the Dataset")
-sapply(air, function(x) sum(is.na(x)))
-
-
 #correlation matrix of (rounded to 2 decimal places)
 air_quality_corr = round(cor(air[c('PM2.5','PM10','SO2','NO2','CO','O3','TEMP','WSPM')]), 2)
 corrplot(air_quality_corr, method = 'number', order = 'FPC', type = 'upper', diag = FALSE, title="Correlation between the Air Pollutants", mar=c(0,0,1,0))
@@ -108,6 +94,13 @@ ggplot(data=air, aes(x=datetime,y=O3)) +
   theme_bw() +
   theme(plot.title = element_text(size=14, face="bold"), axis.title = element_text(size=12), axis.text = element_text(size=10))
 
+
+O3.ts <- ts(air$O3, start = c(2013,1), end = c(2017, 12), freq = 12)
+
+autoplot(O3.ts) +
+  theme_classic() +
+  labs(x = "Date", y = "Ozone Readings") 
+
 # Daily Sulfur Dioxide (SO2) Readings
 ggplot(data=air, aes(x=datetime,y=SO2)) + 
   geom_line(size =1) +
@@ -117,8 +110,15 @@ ggplot(data=air, aes(x=datetime,y=SO2)) +
   theme(plot.title = element_text(size=14, face="bold"), axis.title = element_text(size=12), axis.text = element_text(size=10))
 
 
+SO2.ts <- ts(air$SO2, start = c(2013,1), end = c(2017, 12), freq = 12)
+
+autoplot(SO2.ts) +
+  theme_classic() +
+  labs(x = "Date", y = "Sulfure Dioxide Readings") 
+
+
 # Daily Carbon Monoxide (CO) Readings
-ggplot(data=air, aes(x=datetime,y=SO2)) + 
+ggplot(data=air, aes(x=datetime,y=CO)) + 
   geom_line(size =1) +
   xlab("Datetime") + ylab("Carbon Monoxide (CO)") +
   ggtitle("Daily Carbon Monoxide Readings from Nongzhanguan") +
@@ -126,14 +126,55 @@ ggplot(data=air, aes(x=datetime,y=SO2)) +
   theme(plot.title = element_text(size=14, face="bold"), axis.title = element_text(size=12), axis.text = element_text(size=10))
 
 
+CO.ts <- ts(air$CO, start = c(2013,1), end = c(2017, 12), freq = 12)
+
+autoplot(CO.ts) +
+  theme_classic() +
+  labs(x = "Date", y = "Carbon Monoxide Readings") 
+
 # Daily Nitrogen Dioxide (NO2) Readings
-ggplot(data=air, aes(x=datetime,y=SO2)) + 
+ggplot(data=air, aes(x=datetime,y=NO2)) + 
   geom_line(size =1) +
   xlab("Datetime") + ylab("Nitrogen Dioxide (NO2)") +
   ggtitle("Daily Nitrogen Dioxide Readings from Nongzhanguan") +
   theme_bw() +
   theme(plot.title = element_text(size=14, face="bold"), axis.title = element_text(size=12), axis.text = element_text(size=10))
 
+NO2.ts <- ts(air$NO2, start = c(2013,1), end = c(2017, 12), freq = 12)
+
+autoplot(NO2.ts) +
+  theme_classic() +
+  labs(x = "Date", y = "Nitrogen Dioxide Readings") 
+
+# Daily Fine Particulate Matter (PM2.5) Readings
+ggplot(data=air, aes(x=datetime,y=PM2.5)) + 
+  geom_line(size =1) +
+  xlab("Datetime") + ylab("Fine Particulate Matter (PM2.5)") +
+  ggtitle("Daily Fine Particulate Matter Readings from Nongzhanguan") +
+  theme_bw() +
+  theme(plot.title = element_text(size=14, face="bold"), axis.title = element_text(size=12), axis.text = element_text(size=10))
+
+PM2.5.ts <- ts(air$PM2.5, start = c(2013,1), end = c(2017, 12), freq = 12)
+
+autoplot(PM2.5.ts) +
+  theme_classic() +
+  labs(x = "Date", y = "Fine Particulate Matter Readings") 
+
+
+# Daily Diameter-Less-Than-10-Micrometer Particles Readings
+ggplot(data=air, aes(x=datetime,y=PM10)) + 
+  geom_line(size =1) +
+  xlab("Datetime") + ylab("Diameter-Less-Than-10-Micrometer Particles (PM10)") +
+  ggtitle("Daily Diameter-Less-Than-10-Micrometer Particles Readings from Nongzhanguan") +
+  theme_bw() +
+  theme(plot.title = element_text(size=14, face="bold"), axis.title = element_text(size=12), axis.text = element_text(size=10))
+
+
+PM10.ts <- ts(air$PM10, start = c(2013,1), end = c(2017, 12), freq = 12)
+
+autoplot(PM10.ts) +
+  theme_classic() +
+  labs(x = "Date", y = "Diameter-Less-Than-10-Micrometer Particles Readings")
 ```
 
 
