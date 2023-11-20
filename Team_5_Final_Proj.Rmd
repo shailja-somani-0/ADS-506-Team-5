@@ -21,6 +21,14 @@ library(tsibble)
 library(ggplot2)
 library(caret)
 set.seed(506)
+library(xts)
+library(corrplot)
+library(tsibbledata)
+library(tseries)
+library(forecast)
+library(rpart)
+library(scales)
+library(lubridate)
 ```
 
 ## Data Importing, Preprocessing, & EDA
