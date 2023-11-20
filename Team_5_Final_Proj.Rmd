@@ -319,11 +319,33 @@ ggplot(air_daily, aes(x = WSPM, y = O3)) +
   labs(title = "Wind Speed vs O3 Emissions")
 ```
 
+``` {r smoothing}
+
+# Create Time Series Object
+O3.ts.smooth <- ts(air_daily$O3, start = c(2013, 1), frequency = 12)
+
+# Training and test partitions
+O3.train <- window(O3.ts.smooth, end = c(2016, 12))
+O3.test <- window(O3.ts.smooth, start = c(2017, 1))
 
 
+# Holt-Winter’s exponential smoothing (with multiplicative seasonality) to sales.
+O3.model <- ets(O3.train, model = "ZZM")
+O3.pred <- forecast(O3.model, h = 4)
+
+accuracy(O3.model)
+accuracy(O3.pred)
+```
 
 
+``` {r forecastPlot}
+# Plot the model forecast.
+autoplot(window(O3.train, start = c(2013, 1)), series = 'Training') +
+  autolayer(window(O3.test, end = c(2017, 12)), series = 'Actual') +
+  autolayer(O3.pred, series = 'Prediction', alpha = .4) +
+  theme_classic() 
+```
 
-
-
-
+```{r ResidualPlots}
+checkresiduals(O3.model)
+```
