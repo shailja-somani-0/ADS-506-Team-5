@@ -1,14 +1,36 @@
 ---
 title: 'Team 5 Final Project: Forecasting O3 Pollution in Beijing, China'
-author: "Shailja Somani"
+author: "Shailja Somani, Caleb McCurdy, & Ebad Akhter"
 date: "November 10, 2023"
 output: pdf_document
 ---
 
-```{r, echo = FALSE}
+```{r, echo = FALSE, warning=FALSE}
 # Import packages
-library(fpp3)
+library(readxl)
 library(tidyverse)
+library(fpp2)
+library(quantmod)
+library(dplyr)
+library(readr)
+library(zoo)
+library(fpp3)
+library(gridExtra)
+library(lmtest)
+library(tsibble)
+library(ggplot2)
+library(caret)
+set.seed(506)
+library(xts)
+library(corrplot)
+library(tsibbledata)
+library(tseries)
+library(forecast)
+library(rpart)
+library(scales)
+library(lubridate)
+library(tseries)
+library(reshape2)
 ```
 
 ## Data Importing, Preprocessing, & EDA
@@ -59,6 +81,13 @@ summary(air_df)
 ### Data Pre-Processing
 
 ```{r}
+# Dimensions in Data Set
+print("Data set Dimensions")
+dim(air)
+# Data set Summary
+print("Dataset Summary")
+summary(air)
+
 # replace nulls with last value
 air <- na.locf(air_df, na.rm = FALSE)
 # create one datetime field from all individual date & time fields
@@ -66,25 +95,148 @@ air$datetime <- as.POSIXct(paste(air$year, air$month, air$day, air$hour, sep="-"
 head(air)
 ```
 
+## EDA
+
+```{r EDA}
+#correlation matrix of (rounded to 2 decimal places)
+air_quality_corr = round(cor(air[c('PM2.5','PM10','SO2','NO2','CO','O3')]), 2)
+corrplot(air_quality_corr, method = 'number', order = 'FPC', type = 'upper', diag = FALSE, title="Correlation between the Air Pollutants", mar=c(0,0,1,0))
+#carbon monoxide, lead, ground-level ozone, nitrogen dioxide, particulate matter, and sulfur dioxide.
+
+# Daily Ozone (O3) Readings
+ggplot(data=air, aes(x=datetime,y=O3)) + 
+  geom_line(size =1) +
+  xlab("Datetime") + ylab("Ozone (O3)") +
+  ggtitle("Daily Ozone Readings from Nongzhanguan") +
+  theme_bw() +
+  theme(plot.title = element_text(size=14, face="bold"), axis.title = element_text(size=12), axis.text = element_text(size=10))
+
+
+O3.ts <- ts(air$O3, start = c(2013,1), end = c(2017, 12), freq = 12)
+
+autoplot(O3.ts) +
+  theme_classic() +
+  labs(x = "Date", y = "Ozone Readings") 
+
+# Daily Sulfur Dioxide (SO2) Readings
+ggplot(data=air, aes(x=datetime,y=SO2)) + 
+  geom_line(size =1) +
+  xlab("Datetime") + ylab("Sulfur Dioxide (SO2)") +
+  ggtitle("Daily Sulfur Dioxide Readings from Nongzhanguan") +
+  theme_bw() +
+  theme(plot.title = element_text(size=14, face="bold"), axis.title = element_text(size=12), axis.text = element_text(size=10))
+
+
+SO2.ts <- ts(air$SO2, start = c(2013,1), end = c(2017, 12), freq = 12)
+
+autoplot(SO2.ts) +
+  theme_classic() +
+  labs(x = "Date", y = "Sulfure Dioxide Readings") 
+
+
+# Daily Carbon Monoxide (CO) Readings
+ggplot(data=air, aes(x=datetime,y=CO)) + 
+  geom_line(size =1) +
+  xlab("Datetime") + ylab("Carbon Monoxide (CO)") +
+  ggtitle("Daily Carbon Monoxide Readings from Nongzhanguan") +
+  theme_bw() +
+  theme(plot.title = element_text(size=14, face="bold"), axis.title = element_text(size=12), axis.text = element_text(size=10))
+
+
+CO.ts <- ts(air$CO, start = c(2013,1), end = c(2017, 12), freq = 12)
+
+autoplot(CO.ts) +
+  theme_classic() +
+  labs(x = "Date", y = "Carbon Monoxide Readings") 
+
+# Daily Nitrogen Dioxide (NO2) Readings
+ggplot(data=air, aes(x=datetime,y=NO2)) + 
+  geom_line(size =1) +
+  xlab("Datetime") + ylab("Nitrogen Dioxide (NO2)") +
+  ggtitle("Daily Nitrogen Dioxide Readings from Nongzhanguan") +
+  theme_bw() +
+  theme(plot.title = element_text(size=14, face="bold"), axis.title = element_text(size=12), axis.text = element_text(size=10))
+
+NO2.ts <- ts(air$NO2, start = c(2013,1), end = c(2017, 12), freq = 12)
+
+autoplot(NO2.ts) +
+  theme_classic() +
+  labs(x = "Date", y = "Nitrogen Dioxide Readings") 
+
+# Daily Fine Particulate Matter (PM2.5) Readings
+ggplot(data=air, aes(x=datetime,y=PM2.5)) + 
+  geom_line(size =1) +
+  xlab("Datetime") + ylab("Fine Particulate Matter (PM2.5)") +
+  ggtitle("Daily Fine Particulate Matter Readings from Nongzhanguan") +
+  theme_bw() +
+  theme(plot.title = element_text(size=14, face="bold"), axis.title = element_text(size=12), axis.text = element_text(size=10))
+
+PM2.5.ts <- ts(air$PM2.5, start = c(2013,1), end = c(2017, 12), freq = 12)
+
+autoplot(PM2.5.ts) +
+  theme_classic() +
+  labs(x = "Date", y = "Fine Particulate Matter Readings") 
+
+
+# Daily Diameter-Less-Than-10-Micrometer Particles Readings
+ggplot(data=air, aes(x=datetime,y=PM10)) + 
+  geom_line(size =1) +
+  xlab("Datetime") + ylab("Diameter-Less-Than-10-Micrometer Particles (PM10)") +
+  ggtitle("Daily Diameter-Less-Than-10-Micrometer Particles Readings from Nongzhanguan") +
+  theme_bw() +
+  theme(plot.title = element_text(size=14, face="bold"), axis.title = element_text(size=12), axis.text = element_text(size=10))
+
+
+PM10.ts <- ts(air$PM10, start = c(2013,1), end = c(2017, 12), freq = 12)
+
+autoplot(PM10.ts) +
+  theme_classic() +
+  labs(x = "Date", y = "Diameter-Less-Than-10-Micrometer Particles Readings")
+```
+
+```{r}
+# Heatmap for O3 against weather variables
+# Select relevant columns
+selected_cols <- c("O3", "TEMP", "PRES", "DEWP", "RAIN", "WSPM")
+cor_data <- air %>%
+  select(all_of(selected_cols))
+# Calculate correlation matrix
+cor_mat <- cor(cor_data)
+cor_data <- reshape2::melt(cor_mat)
+# Create the heatmap using ggplot2
+ggplot(cor_data, aes(x = Var1, y = Var2, fill = value, label = round(value, 2))) +
+  geom_tile() +
+  geom_text(color = "black", size = 3) +  # Add correlations on heatmap
+  labs(title = "Correlation Heatmap of O3 Levels Against Weather Predictors") +
+  scale_fill_gradient2(low = "blue", mid = "white", high = "red",
+                     midpoint = 0, limits = c(-1, 1)) +
+theme(axis.text.x = element_text(angle = 45, hjust = 1), 
+    axis.title.x = element_blank(),  
+    axis.title.y = element_blank())
+```
+
+
 ### Time Series Plots
 
 ```{r}
 O3_daily <- air %>%
   group_by(Date = format(datetime, "%Y-%m-%d")) %>%
-  summarise(Average = mean(O3))
+  summarise(Daily_O3 = mean(O3))
 
 O3_monthly <- air %>%
   group_by(Month = format(datetime, "%Y-%m")) %>%
-  summarise(Average = mean(O3))
+  summarise(Monthly_O3 = mean(O3))
 
 summary(O3_daily)
 summary(O3_monthly)
 ```
 
+
+
 ```{r}
 # create time series object
-O3_m_TS <- ts(O3_monthly$Average, start = c(2013, 3), frequency = 12)
-O3_d_TS <- ts(O3_daily$Average, start = c(2103, 60), frequency = 365)
+O3_m_TS <- ts(O3_monthly$Monthly_O3, start = c(2013, 3), frequency = 12)
+O3_d_TS <- ts(O3_daily$Daily_O3, start = c(2013, 60), frequency = 365)
 
 # plot the time series with the mean labeled in red
 autoplot(O3_m_TS) +
@@ -104,5 +256,162 @@ autoplot(O3_d_TS) +
 ```
 
 
+We can create time plots of the other numerical series (Temperature, Pressure, Dew Point Temperature, Precipitation, and Wind Speed). Additionally, we can create scatter plots of the ground-level ozone emissions series against each of these five series (each point in the scatter plot represents one day). From the charts, we can determine which of the five series will potentially be useful as external predictors in a regression model for forecasting O3 emissions?
+
+```{r}
+# Time plots of other numerical series
+
+temp_daily <- air %>%
+  group_by(Date = format(datetime, "%Y-%m-%d")) %>%
+  summarise(Daily_TEMP = mean(TEMP))
+
+pres_daily <- air %>%
+  group_by(Date = format(datetime, "%Y-%m-%d")) %>%
+  summarise(Daily_PRES = mean(PRES))
+
+dewp_daily <- air %>%
+  group_by(Date = format(datetime, "%Y-%m-%d")) %>%
+  summarise(Daily_DEWP = mean(DEWP))
+
+rain_daily <- air %>%
+  group_by(Date = format(datetime, "%Y-%m-%d")) %>%
+  summarise(Daily_RAIN = mean(RAIN))
+
+wspm_daily <- air %>%
+  group_by(Date = format(datetime, "%Y-%m-%d")) %>%
+  summarise(Daily_WSPM = mean(WSPM))
+
+daily.temp.ts <- ts(temp_daily$Daily_TEMP, start = c(2013, 60), frequency = 365)
+daily.pres.ts <- ts(pres_daily$Daily_PRES, start = c(2013, 60), frequency = 365)
+daily.dewp.ts <- ts(dewp_daily$Daily_DEWP, start = c(2013, 60), frequency = 365)
+daily.rain.ts <- ts(rain_daily$Daily_RAIN, start = c(2013, 60), frequency = 365)
+daily.wspm.ts <- ts(wspm_daily$Daily_WSPM, start = c(2013, 60), frequency = 365)
+
+autoplot(daily.temp.ts) +
+  labs(title = "Daily Average Temperature in Beijing",
+       y = "") +
+  theme_minimal()
+
+autoplot(daily.pres.ts) +
+  labs(title = "Daily Average Pressure in Beijing",
+       y = "") +
+  theme_minimal()
+
+autoplot(daily.dewp.ts) +
+  labs(title = "Daily Average Dew Point Temperature in Beijing",
+       y = "") +
+  theme_minimal()
+
+autoplot(daily.rain.ts) +
+  labs(title = "Daily Average Precipitaion in Beijing",
+       y = "") +
+  theme_minimal()
+
+autoplot(daily.wspm.ts) +
+  labs(title = "Daily Average Wind Speed in Beijing",
+       y = "") +
+  theme_minimal()
+```
+
+```{r}
+# create new data frame with daily averages of O3 and external predictors
+air_daily <- O3_daily
+names(air_daily)[names(air_daily) == "Daily_O3"] <- "O3"
+
+air_daily$TEMP <- temp_daily$Daily_TEMP
+air_daily$PRES <- pres_daily$Daily_PRES
+air_daily$DEWP <- dewp_daily$Daily_DEWP
+air_daily$RAIN <- rain_daily$Daily_RAIN
+air_daily$WSPM <- wspm_daily$Daily_WSPM
+```
+
+```{r}
+# scatter plots
+
+ggplot(air_daily, aes(x = TEMP, y = O3)) +
+  geom_point() +
+  labs(title = "Temperature vs O3 Emissions")
+
+ggplot(air_daily, aes(x = PRES, y = O3)) +
+  geom_point() +
+  labs(title = "Pressure vs O3 Emissions")
+
+ggplot(air_daily, aes(x = DEWP, y = O3)) +
+  geom_point() +
+  labs(title = "Dew Point Temperature vs O3 Emissions")
+
+ggplot(air_daily, aes(x = RAIN, y = O3)) +
+  geom_point() +
+  labs(title = "Precipitation vs O3 Emissions")
+
+ggplot(air_daily, aes(x = WSPM, y = O3)) +
+  geom_point() +
+  labs(title = "Wind Speed vs O3 Emissions")
+```
+
+### Try Differencing & Smoothing
+
+```{r smoothing method 1}
+# Apply ETS smoothing
+ets_model <- ets(O3_d_TS, model = "AAN")
+
+# Get the fitted values (smoothed values)
+smoothed_values <- fitted(ets_model)
+
+# Plot the original and smoothed time series
+plot(O3_d_TS, col = "blue", type = "l", lty = 1, xlab = "Time", ylab = "O3 Levels", main = "Original vs. Smoothed Time Series (ETS)")
+lines(smoothed_values, col = "red", type = "l", lty = 2)
+legend("topright", legend = c("Original", "Smoothed"), col = c("blue", "red"), lty = c(1, 2))
+```
 
 
+```{r smoothing method 2}
+# Apply STL decomposition and forecasting
+stlf_model <- stlf(O3_d_TS)
+
+# Plot the original and smoothed time series
+plot(O3_d_TS, col = "blue", type = "l", lty = 1, xlab = "Time", ylab = "O3 Levels", main = "Original vs. Smoothed Time Series (STL)")
+lines(stlf_model$fitted, col = "red", type = "l", lty = 2)
+# Add a legend
+legend("topright", legend = c("Original", "Smoothed"), col = c("blue", "red"), lty = c(1, 2))
+```
+
+
+```{r differencing}
+# Test if differencing is needed for stationarity 
+# ADF test before differencing
+adf_before <- adf.test(O3_d_TS)
+cat("ADF Statistic (Before differencing):", adf_before$statistic, "\n")
+cat("p-value (Before differencing):", adf_before$p.value, "\n")
+cat("Critical values (Before differencing):", adf_before$critical, "\n")
+
+# Differencing
+O3_differenced <- diff(O3_d_TS)
+
+# ADF test after differencing
+adf_after <- adf.test(O3_differenced)
+cat("\nADF Statistic (After differencing):", adf_after$statistic, "\n")
+cat("p-value (After differencing):", adf_after$p.value, "\n")
+cat("Critical values (After differencing):", adf_after$critical, "\n")
+
+# Plot after differencing with the mean labeled in red
+autoplot(O3_differenced) +
+  labs(title = "Differenced Daily O3 Emissions in Nongzhanguan",
+       x = "Date",
+       y = "Average O3 Emissions") +
+  theme_minimal() +
+  geom_hline(yintercept = mean(O3_differenced), linetype = "dashed", color = "red")
+```
+
+
+``` {r forecastPlot}
+# Plot the model forecast.
+autoplot(window(O3.train, start = c(2013, 1)), series = 'Training') +
+  autolayer(window(O3.test, end = c(2017, 12)), series = 'Actual') +
+  autolayer(O3.pred, series = 'Prediction', alpha = .4) +
+  theme_classic() 
+```
+
+```{r ResidualPlots}
+checkresiduals(O3.model)
+```
