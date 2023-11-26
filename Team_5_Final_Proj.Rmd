@@ -407,23 +407,32 @@ accuracy(modeled365, O3.test2)
 # Threshold for above standard is 70 micrograms per cubic meter
 O3.daily.ts10 <- ifelse(O3.daily.ts > 70, "Yes", "No")
 O3.daily.ts10 <- as.numeric(O3.daily.ts10 == "Yes")
-#O3.daily.ts10
 
-# Training and test partitions
-O3.train10 <- window(O3.daily.ts10, end = c(2016, 61))
-O3.test10 <- window(O3.daily.ts10, start = c(2016, 62))
+O3.train10 <- ifelse(O3.train2 > 70, "Yes", "No")
+O3.test10 <- ifelse(O3.test2 > 70, "Yes", "No")
+O3.train10 <- as.numeric(O3.train10 == "Yes")
+O3.test10 <- as.numeric(O3.test10 == "Yes")
 ```
 
-```{r}
-naive10 <- rwf(O3.train10, h = 365)
-snaive10 <- snaive(O3.train10, h = 365)
-modeled10 <- forecast(O3.train10, h = 365)
-```
-
-```{r}
+```{r, warning=FALSE}
 # Create a confusion matrix
-cm <- confusionMatrix(as.factor(round(naive10)),
-                         as.factor(round(O3.test10)))
-cm
+naive10_vals <- ifelse(naive365$mean > 70, 1, 0)
+
+cm_naive365 <- confusionMatrix(as.factor(round(naive10_vals)), 
+                            as.factor(round(O3.test10)))
+cm_naive365
+
+snaive10_vals <- ifelse(snaive365$mean > 70, 1, 0)
+
+cm_snaive365 <- confusionMatrix(as.factor(round(snaive10_vals)), 
+                             as.factor(round(O3.test10)))
+cm_snaive365
+
+modeled10_vals <- ifelse(modeled365$mean > 70, 1, 0)
+
+cm_modeled365 <- confusionMatrix(as.factor(round(modeled10_vals)), 
+                             as.factor(round(O3.test10)))
+cm_modeled365
 ```
+
 
