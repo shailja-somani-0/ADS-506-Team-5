@@ -336,10 +336,10 @@ lines(smoothed_values, col = "red", type = "l", lty = 2)
 legend("topright", legend = c("Original", "Smoothed"), col = c("blue", "red"), lty = c(1, 2))
 ```
 
+
 ```{r smoothing method 2}
 # Apply STL decomposition and forecasting
 stlf_model <- stlf(O3_d_TS)
-
 
 # Plot the original and smoothed time series
 plot(O3_d_TS, col = "blue", type = "l", lty = 1, xlab = "Time", ylab = "O3 Levels", main = "Original vs. Smoothed Time Series (STL)")
@@ -450,30 +450,76 @@ accuracy_snaive365
 accuracy_modeled365 
 ```
 
-#### Modeling with External Predictors
-
-```{r modeling w external predictors}
+```{r arima, warning=FALSE}
+# Trying ARIMA model with variety of parameters
+# Create time series object
 air_daily_ts <- ts(air_daily, start = c(2013, 60), frequency = 365)
 
 # Training and test partitions for the combined time series
 combined_train <- window(air_daily_ts, end = c(2016, 61))
 combined_test <- window(air_daily_ts, start = c(2016, 62))
 
-# Time series forecasting with external predictors
+# Time series auto arima forecasting without external predictors
 # Target column index
 target_col_index <- which(colnames(combined_train) == "O3")
 
-# Time series auto arima forecasting with external predictor
 # Define a range of ARIMA parameters to search through
 arima_params <- list(order = c(0, 1, 2), seasonal = list(order = c(0, 1, 1), period = 365))
 
-# Fit ARIMA model using auto.arima with different parameter combinations
-arima_model <- auto.arima(combined_train[, target_col_index], xreg = combined_train[, -target_col_index], 
-                          seasonal = TRUE, approximation = FALSE, trace = TRUE, 
-                          stationary = FALSE, parallel = TRUE)
+# Fit ARIMA model using auto.arima with specified parameters
+arima_model_1 <- auto.arima(combined_train[, target_col_index], 
+                          seasonal = TRUE, approximation = FALSE,
+                          trace = TRUE, stationary = FALSE, parallel = TRUE)
+```
+
+```{r}
+arima_model_1
 
 # Forecast with the selected ARIMA model
-modeled365_combined <- forecast(arima_model, h = 365, xreg = combined_test[, -target_col_index])
+modeled365_arima <- forecast(arima_model_1, h = 365)
+```
+
+```{r}
+# Plot for Modeled 365
+autoplot(combined_train[, "O3"]) +
+  autolayer(modeled365_arima, color = "green", PI = FALSE) +
+  autolayer(combined_test[, "O3"], color = "red") +
+  labs(title = "Time Series Plot of O3 Emissions with ARIMA Forecast",
+       x = "Time",
+       y = "Ground Ozone")
+
+# Combined Plot with Seasonal Naive, Actual, and Prediction
+autoplot(combined_train[, "O3"], series = 'Training') +
+  labs(title = "Time Series Plot of O3 Emissions with ARIMA Forecast vs. Actual Values",
+       x = "Time",
+       y = "Ground Ozone") +
+  autolayer(combined_test[, "O3"], series = 'Actual') +
+  autolayer(modeled365_arima, series = 'Prediction', alpha = 0.4) +
+  theme_classic() +
+  coord_cartesian(ylim = c(0, 200))
+```
+
+```{r}
+accuracy_modeled365_arima <- accuracy(modeled365_arima, combined_test[, "O3"])
+accuracy_modeled365_arima
+```
+
+
+#### Modeling with External Predictors
+
+```{r arima w external predictors, warning=FALSE}
+# Fit ARIMA model using auto.arima with different parameter combinations
+arima_model_2 <- auto.arima(combined_train[, target_col_index], xreg = combined_train[, -target_col_index], 
+                          seasonal = TRUE, approximation = FALSE, trace = TRUE, 
+                          stationary = FALSE, parallel = TRUE)
+```
+
+
+```{r arima w external predictors, warning=FALSE}
+arima_model_2 
+
+# Forecast with the selected ARIMA model
+modeled365_combined <- forecast(arima_model_2, h = 365, xreg = combined_test[, -target_col_index])
 ```
 
 ```{r}
@@ -503,13 +549,13 @@ accuracy_modeled365_combined
 ```{r accuracy df}
 # Combine test set accuracy metrics for all 4 forecasts (with & without external predictors thus far)
 accuracy_df <- data.frame(
-  Model = c("Naive 365", "Seasonal Naive 365", "Modeled 365", "Combined Modeled 365"),
+  Model = c("Naive", "Seasonal Naive", "ETS", "ARIMA", "ARIMA with External Predictors"),
   Test_Set_RMSE = c(accuracy_naive365[, "RMSE"][2], accuracy_snaive365[, "RMSE"][2], accuracy_modeled365[, "RMSE"][2],
-          accuracy_modeled365_combined[, "RMSE"][2]),
+          accuracy_modeled365_arima[, "RMSE"][2], accuracy_modeled365_combined[, "RMSE"][2]),
   Test_Set_MAE = c(accuracy_naive365[, "MAE"][2], accuracy_snaive365[, "MAE"][2], accuracy_modeled365[, "MAE"][2],
-           accuracy_modeled365_combined[, "MAE"][2]),
+           accuracy_modeled365_arima[, "MAE"][2], accuracy_modeled365_combined[, "MAE"][2]),
   Test_Set_MAPE = c(accuracy_naive365[, "MAPE"][2], accuracy_snaive365[, "MAPE"][2], accuracy_modeled365[, "MAPE"][2],
-           accuracy_modeled365_combined[, "MAPE"][2])
+           accuracy_modeled365_arima[, "MAPE"][2], accuracy_modeled365_combined[, "MAPE"][2])
 )
 
 # Print the accuracy data frame
@@ -547,14 +593,20 @@ cm_snaive365 <- confusionMatrix(as.factor(round(snaive10_vals)),
                              as.factor(round(O3.test10)))
 cm_snaive365
 
-cat("\n\nModeled Forecast:\n")
+cat("\n\nETS Forecast:\n")
 modeled10_vals <- ifelse(modeled365$mean > 70, 1, 0)
 
 cm_modeled365 <- confusionMatrix(as.factor(round(modeled10_vals)), 
                              as.factor(round(O3.test10)))
 cm_modeled365
 
-cat("\n\nModeled with External Variables Forecast:\n")
+cat("\n\nARIMA Forecast:\n")
+modeled_arima_ext10_vals <- ifelse(modeled365_arima$mean > 70, 1, 0)
+cm_modeled365_arima <- confusionMatrix(as.factor(round(modeled_arima_ext10_vals)), 
+                             as.factor(round(O3.test10)))
+cm_modeled365_arima
+
+cat("\n\nARIMA with External Variables Forecast:\n")
 modeled_ext10_vals <- ifelse(modeled365_combined$mean > 70, 1, 0)
 cm_modeled_ext365 <- confusionMatrix(as.factor(round(modeled_ext10_vals)), 
                              as.factor(round(O3.test10)))
@@ -616,3 +668,44 @@ ggplot(comparison_data, aes(x = Year)) +
                                 "Forecast" = "red")) +
   theme_minimal()
 ```
+### Full Metrics Dataframe
+```{r}
+# Calculate accuracy for each model
+accuracy_naive365 <- sum((naive365$mean > 70) == round(O3.test10)) / length(O3.test10) * 100
+accuracy_snaive365 <- sum((snaive365$mean > 70) == round(O3.test10)) / length(O3.test10) * 100
+accuracy_modeled365 <- sum((modeled365$mean > 70) == round(O3.test10)) / length(O3.test10) * 100
+accuracy_modeled365_arima <- sum((modeled365_arima$mean > 70) == round(O3.test10)) / length(O3.test10) * 100
+
+# Remove the last row from modeled365_combined$mean and O3.test10 to remove 1 NA
+modeled365_combined_cleaned <- head(modeled365_combined$mean, -1)
+O3_test_cleaned <- head(O3.test10, -1)
+accuracy_modeled365_combined <- sum((modeled365_combined_cleaned > 70) == round(O3_test_cleaned)) / length(O3_test_cleaned) * 100
+
+# Add accuracy for each model to the accuracy dataframe
+accuracy_df$Test_Set_Accuracy_Pct_Binary_Classification <- c(
+  accuracy_naive365,
+  accuracy_snaive365,
+  accuracy_modeled365,
+  accuracy_modeled365_arima,
+  accuracy_modeled365_combined
+)
+```
+
+```{r}
+# Add in LR - will just have binary accuracy
+accuracy_df <- rbind(
+  accuracy_df,
+  data.frame(
+    Model = "Logistic Regression with External Predictors",
+    Test_Set_RMSE = NA,
+    Test_Set_MAE = NA,
+    Test_Set_MAPE = NA, 
+    Test_Set_Accuracy_Pct_Binary_Classification = sum(combined_test_df$forecast == combined_test_df$O3_binary) / nrow(combined_test_df) * 100
+  )
+)
+```
+
+```{r}
+print(accuracy_df)
+```
+
