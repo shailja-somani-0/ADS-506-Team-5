@@ -6,6 +6,9 @@ output: pdf_document
 ---
 
 ```{r, echo = FALSE}
+# Set seed for reproducability 
+set.seed(506)
+
 # Import packages
 library(readxl)
 library(tidyverse)
@@ -20,7 +23,6 @@ library(lmtest)
 library(tsibble)
 library(ggplot2)
 library(caret)
-set.seed(506)
 library(xts)
 library(corrplot)
 library(tsibbledata)
@@ -319,35 +321,63 @@ ggplot(air_daily, aes(x = WSPM, y = O3)) +
   labs(title = "Wind Speed vs O3 Emissions")
 ```
 
-``` {r smoothing}
+### Try Differencing & Smoothing
 
-# Create Time Series Object
-O3.ts.smooth <- ts(air_daily$O3, start = c(2013, 1), frequency = 12)
+```{r smoothing method 1}
+# Apply ETS smoothing
+ets_model <- ets(O3_d_TS, model = "AAN")
 
-# Training and test partitions
-O3.train <- window(O3.ts.smooth, end = c(2016, 12))
-O3.test <- window(O3.ts.smooth, start = c(2017, 1))
+# Get the fitted values (smoothed values)
+smoothed_values <- fitted(ets_model)
 
-
-# Holt-Winter’s exponential smoothing (with multiplicative seasonality) to O3.
-O3.model <- ets(O3.train, model = "ZZM")
-O3.pred <- forecast(O3.model, h = 4)
-
-accuracy(O3.model)
-accuracy(O3.pred)
+# Plot the original and smoothed time series
+plot(O3_d_TS, col = "blue", type = "l", lty = 1, xlab = "Time", ylab = "O3 Levels", main = "Original vs. Smoothed Time Series (ETS)")
+lines(smoothed_values, col = "red", type = "l", lty = 2)
+legend("topright", legend = c("Original", "Smoothed"), col = c("blue", "red"), lty = c(1, 2))
 ```
 
-``` {r forecastPlot}
-# Plot the model forecast.
-autoplot(window(O3.train, start = c(2013, 1)), series = 'Training') +
-  autolayer(window(O3.test, end = c(2017, 12)), series = 'Actual') +
-  autolayer(O3.pred, series = 'Prediction', alpha = .4) +
-  theme_classic() 
+```{r smoothing method 2}
+# Apply STL decomposition and forecasting
+stlf_model <- stlf(O3_d_TS)
+
+
+# Plot the original and smoothed time series
+plot(O3_d_TS, col = "blue", type = "l", lty = 1, xlab = "Time", ylab = "O3 Levels", main = "Original vs. Smoothed Time Series (STL)")
+lines(stlf_model$fitted, col = "red", type = "l", lty = 2)
+# Add a legend
+legend("topright", legend = c("Original", "Smoothed"), col = c("blue", "red"), lty = c(1, 2))
 ```
 
-```{r ResidualPlots}
-checkresiduals(O3.model)
+
+```{r differencing}
+# Test if differencing is needed for stationarity 
+# ADF test before differencing
+adf_before <- adf.test(O3_d_TS)
+cat("ADF Statistic (Before differencing):", adf_before$statistic, "\n")
+cat("p-value (Before differencing):", adf_before$p.value, "\n")
+cat("Critical values (Before differencing):", adf_before$critical, "\n")
+
+# Differencing
+O3_differenced <- diff(O3_d_TS)
+
+# ADF test after differencing
+adf_after <- adf.test(O3_differenced)
+cat("\nADF Statistic (After differencing):", adf_after$statistic, "\n")
+cat("p-value (After differencing):", adf_after$p.value, "\n")
+cat("Critical values (After differencing):", adf_after$critical, "\n")
+
+# Plot after differencing with the mean labeled in red
+autoplot(O3_differenced) +
+  labs(title = "Differenced Daily O3 Emissions in Nongzhanguan",
+       x = "Date",
+       y = "Average O3 Emissions") +
+  theme_minimal() +
+  geom_hline(yintercept = mean(O3_differenced), linetype = "dashed", color = "red")
 ```
+
+## Modeling
+
+### Modeling Exact Values
 
 ```{r}
 # Create Time Series Object
@@ -368,39 +398,126 @@ modeled365 <- forecast(O3.train2, h = 365)
 autoplot(O3.train2) + 
   autolayer(naive365, color = "green", PI = F) +
   autolayer(O3.test2, color = "red") +
-  labs(title = "Time Series Plot of O3 Emissions",
+  labs(title = "Time Series Plot of O3 Emissions with Naive Forecast",
        x = "Time",
        y = "Ground Ozone") 
 
 autoplot(O3.train2) + 
   autolayer(snaive365, color = "green", PI = F) +
   autolayer(O3.test2, color = "red") +
-  labs(title = "Time Series Plot of O3 Emissions",
+  labs(title = "Time Series Plot of O3 Emissions with Seasonal Naive Forecast",
        x = "Time",
        y = "Ground Ozone") 
 
 autoplot(O3.train2) + 
   autolayer(modeled365, color = "green", PI = F) +
   autolayer(O3.test2, color = "red") +
-  labs(title = "Time Series Plot of O3 Emissions",
+  labs(title = "Time Series Plot of O3 Emissions with Modeled Forecast",
        x = "Time",
        y = "Ground Ozone")
 
 autoplot(O3.train2, series = 'Training') +
-  labs(title = "Time Series Plot of O3 Emissions",
+  labs(title = "Time Series Plot of O3 Emissions with Seasonal Naive Predictions vs. Actual",
        x = "Time",
        y = "Ground Ozone") +
   autolayer(O3.test2, series = 'Actual') +
   autolayer(snaive365, series = 'Prediction', alpha = .4) +
   theme_classic() +
   coord_cartesian(ylim = c(0, 200))
+
+# Extract point forecasts from the modeled365 forecast object
+modeled365_forecasts <- as.numeric(modeled365$mean)
+# Create a time series object for the forecasts
+modeled365_ts <- ts(modeled365_forecasts, start = c(2016, 62), frequency = 365)
+# plot modeled365 actual vs. pred
+autoplot(O3.train2, series = 'Training') +
+  labs(title = "Time Series Plot of O3 Emissions with Modeled Predictions vs. Actual",
+       x = "Time",
+       y = "Ground Ozone") +
+  autolayer(O3.test2, series = 'Actual') +
+  autolayer(modeled365_ts, series = 'Prediction', alpha = .4) +
+  theme_classic() +
+  coord_cartesian(ylim = c(0, 200))
 ```
 
 ```{r}
-accuracy(naive365, O3.test2)
-accuracy(snaive365, O3.test2)
-accuracy(modeled365, O3.test2)
+accuracy_naive365 <- accuracy(naive365, O3.test2)
+accuracy_snaive365 <- accuracy(snaive365, O3.test2)
+accuracy_modeled365 <- accuracy(modeled365, O3.test2)
+
+accuracy_naive365
+accuracy_snaive365 
+accuracy_modeled365 
 ```
+
+#### Modeling with External Predictors
+
+```{r modeling w external predictors}
+air_daily_ts <- ts(air_daily, start = c(2013, 60), frequency = 365)
+
+# Training and test partitions for the combined time series
+combined_train <- window(air_daily_ts, end = c(2016, 61))
+combined_test <- window(air_daily_ts, start = c(2016, 62))
+
+# Time series forecasting with external predictors
+# Target column index
+target_col_index <- which(colnames(combined_train) == "O3")
+
+# Time series auto arima forecasting with external predictor
+# Define a range of ARIMA parameters to search through
+arima_params <- list(order = c(0, 1, 2), seasonal = list(order = c(0, 1, 1), period = 365))
+
+# Fit ARIMA model using auto.arima with different parameter combinations
+arima_model <- auto.arima(combined_train[, target_col_index], xreg = combined_train[, -target_col_index], 
+                          seasonal = TRUE, approximation = FALSE, trace = TRUE, 
+                          stationary = FALSE, parallel = TRUE)
+
+# Forecast with the selected ARIMA model
+modeled365_combined <- forecast(arima_model, h = 365, xreg = combined_test[, -target_col_index])
+```
+
+```{r}
+# Plot for Modeled 365
+autoplot(combined_train[, "O3"]) +
+  autolayer(modeled365_combined, color = "green", PI = FALSE) +
+  autolayer(combined_test[, "O3"], color = "red") +
+  labs(title = "Time Series Plot of O3 Emissions with Modeled Forecast \nand External Predictors",
+       x = "Time",
+       y = "Ground Ozone")
+
+# Combined Plot with Seasonal Naive, Actual, and Prediction
+autoplot(combined_train[, "O3"], series = 'Training') +
+  labs(title = "Time Series Plot of O3 Emissions with Modeled Forecast \nand External Predictors",
+       x = "Time",
+       y = "Ground Ozone") +
+  autolayer(combined_test[, "O3"], series = 'Actual') +
+  autolayer(modeled365_combined, series = 'Prediction', alpha = 0.4) +
+  theme_classic() +
+  coord_cartesian(ylim = c(0, 200))
+```
+```{r}
+accuracy_modeled365_combined <- accuracy(modeled365_combined, combined_test[, "O3"])
+accuracy_modeled365_combined
+```
+
+```{r accuracy df}
+# Combine test set accuracy metrics for all 4 forecasts (with & without external predictors thus far)
+accuracy_df <- data.frame(
+  Model = c("Naive 365", "Seasonal Naive 365", "Modeled 365", "Combined Modeled 365"),
+  Test_Set_RMSE = c(accuracy_naive365[, "RMSE"][2], accuracy_snaive365[, "RMSE"][2], accuracy_modeled365[, "RMSE"][2],
+          accuracy_modeled365_combined[, "RMSE"][2]),
+  Test_Set_MAE = c(accuracy_naive365[, "MAE"][2], accuracy_snaive365[, "MAE"][2], accuracy_modeled365[, "MAE"][2],
+           accuracy_modeled365_combined[, "MAE"][2]),
+  Test_Set_MAPE = c(accuracy_naive365[, "MAPE"][2], accuracy_snaive365[, "MAPE"][2], accuracy_modeled365[, "MAPE"][2],
+           accuracy_modeled365_combined[, "MAPE"][2])
+)
+
+# Print the accuracy data frame
+print(accuracy_df)
+```
+
+
+### Modeling if Above/Below Threshold
 
 ```{r}
 # Create Time Series Object
@@ -416,23 +533,86 @@ O3.test10 <- as.numeric(O3.test10 == "Yes")
 
 ```{r, warning=FALSE}
 # Create a confusion matrix
+cat("Naive Forecast:\n")
 naive10_vals <- ifelse(naive365$mean > 70, 1, 0)
 
 cm_naive365 <- confusionMatrix(as.factor(round(naive10_vals)), 
                             as.factor(round(O3.test10)))
 cm_naive365
 
+cat("\n\nSeasonal Naive Forecast:\n")
 snaive10_vals <- ifelse(snaive365$mean > 70, 1, 0)
 
 cm_snaive365 <- confusionMatrix(as.factor(round(snaive10_vals)), 
                              as.factor(round(O3.test10)))
 cm_snaive365
 
+cat("\n\nModeled Forecast:\n")
 modeled10_vals <- ifelse(modeled365$mean > 70, 1, 0)
 
 cm_modeled365 <- confusionMatrix(as.factor(round(modeled10_vals)), 
                              as.factor(round(O3.test10)))
 cm_modeled365
+
+cat("\n\nModeled with External Variables Forecast:\n")
+modeled_ext10_vals <- ifelse(modeled365_combined$mean > 70, 1, 0)
+cm_modeled_ext365 <- confusionMatrix(as.factor(round(modeled_ext10_vals)), 
+                             as.factor(round(O3.test10)))
+cm_modeled_ext365
 ```
 
+#### Logistic Regression with External Predictors
+```{r}
+# Create binary response variable based on O3 levels
+combined_train_df <- as.data.frame(combined_train)
+combined_train_df$O3_binary <- ifelse(combined_train_df$O3 > 70, 1, 0)
+combined_test_df <- as.data.frame(combined_test)
+combined_test_df$O3_binary <- ifelse(combined_test_df$O3 > 70, 1, 0)
 
+# Train logistic regression model
+log_reg_o3 <- glm(O3_binary ~ TEMP + PRES + DEWP + RAIN + WSPM, data = combined_train_df, family = "binomial")
+
+# Make predictions on the test dataset for simplicity
+combined_test_df$prob <- predict(log_reg_o3, newdata = combined_test_df, type = "response")
+combined_test_df$forecast <- ifelse(combined_test_df$prob >= 0.5, 1, 0)
+
+# Create confusion matrix
+confusionMatrix(data = factor(combined_test_df$forecast, levels = c(0, 1)),
+                                reference = factor(combined_test_df$O3_binary, levels = c(0, 1)))
+```
+
+```{r}
+# Plot LR model - ignore this chunk; quite messy 
+# Make df to combine all needed data
+# Combine the relevant columns into a data frame
+comparison_data <- data.frame(
+  Year = as.numeric(time(combined_test)),
+  Actual = combined_test_df$O3_binary,
+  LogisticRegression = combined_test_df$prob,
+  Forecast = combined_test_df$forecast
+)
+
+# Add the Previous Training Data to the data frame
+comparison_data <- rbind(
+  comparison_data,
+  data.frame(
+    Year = as.numeric(time(combined_train)),
+    Actual = combined_train_df$O3_binary,
+    LogisticRegression = NA,
+    Forecast = NA
+  )
+)
+
+# Plot the comparison
+ggplot(comparison_data, aes(x = Year)) +
+  geom_line(aes(y = Actual, color = "Actual")) +
+  geom_line(aes(y = LogisticRegression, color = "Logistic Regression")) +
+  geom_line(aes(y = Forecast, color = "Forecast")) +
+  labs(title = "Comparison of O3 Binary, Logistic Regression Predictions, and Forecast",
+       x = "Year",
+       y = "Value") +
+  scale_color_manual(values = c("Actual" = "blue", 
+                                "Logistic Regression" = "green", 
+                                "Forecast" = "red")) +
+  theme_minimal()
+```
