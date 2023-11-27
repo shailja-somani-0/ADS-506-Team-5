@@ -398,30 +398,44 @@ modeled365 <- forecast(O3.train2, h = 365)
 autoplot(O3.train2) + 
   autolayer(naive365, color = "green", PI = F) +
   autolayer(O3.test2, color = "red") +
-  labs(title = "Time Series Plot of O3 Emissions",
+  labs(title = "Time Series Plot of O3 Emissions with Naive Forecast",
        x = "Time",
        y = "Ground Ozone") 
 
 autoplot(O3.train2) + 
   autolayer(snaive365, color = "green", PI = F) +
   autolayer(O3.test2, color = "red") +
-  labs(title = "Time Series Plot of O3 Emissions",
+  labs(title = "Time Series Plot of O3 Emissions with Seasonal Naive Forecast",
        x = "Time",
        y = "Ground Ozone") 
 
 autoplot(O3.train2) + 
   autolayer(modeled365, color = "green", PI = F) +
   autolayer(O3.test2, color = "red") +
-  labs(title = "Time Series Plot of O3 Emissions",
+  labs(title = "Time Series Plot of O3 Emissions with Modeled Forecast",
        x = "Time",
        y = "Ground Ozone")
 
 autoplot(O3.train2, series = 'Training') +
-  labs(title = "Time Series Plot of O3 Emissions",
+  labs(title = "Time Series Plot of O3 Emissions with Seasonal Naive Predictions vs. Actual",
        x = "Time",
        y = "Ground Ozone") +
   autolayer(O3.test2, series = 'Actual') +
   autolayer(snaive365, series = 'Prediction', alpha = .4) +
+  theme_classic() +
+  coord_cartesian(ylim = c(0, 200))
+
+# Extract point forecasts from the modeled365 forecast object
+modeled365_forecasts <- as.numeric(modeled365$mean)
+# Create a time series object for the forecasts
+modeled365_ts <- ts(modeled365_forecasts, start = c(2016, 62), frequency = 365)
+# plot modeled365 actual vs. pred
+autoplot(O3.train2, series = 'Training') +
+  labs(title = "Time Series Plot of O3 Emissions with Modeled Predictions vs. Actual",
+       x = "Time",
+       y = "Ground Ozone") +
+  autolayer(O3.test2, series = 'Actual') +
+  autolayer(modeled365_ts, series = 'Prediction', alpha = .4) +
   theme_classic() +
   coord_cartesian(ylim = c(0, 200))
 ```
@@ -435,6 +449,8 @@ accuracy_naive365
 accuracy_snaive365 
 accuracy_modeled365 
 ```
+
+#### Modeling with External Predictors
 
 ```{r modeling w external predictors}
 air_daily_ts <- ts(air_daily, start = c(2013, 60), frequency = 365)
@@ -545,4 +561,58 @@ cm_modeled_ext365 <- confusionMatrix(as.factor(round(modeled_ext10_vals)),
 cm_modeled_ext365
 ```
 
+#### Logistic Regression with External Predictors
+```{r}
+# Create binary response variable based on O3 levels
+combined_train_df <- as.data.frame(combined_train)
+combined_train_df$O3_binary <- ifelse(combined_train_df$O3 > 70, 1, 0)
+combined_test_df <- as.data.frame(combined_test)
+combined_test_df$O3_binary <- ifelse(combined_test_df$O3 > 70, 1, 0)
 
+# Train logistic regression model
+log_reg_o3 <- glm(O3_binary ~ TEMP + PRES + DEWP + RAIN + WSPM, data = combined_train_df, family = "binomial")
+
+# Make predictions on the test dataset for simplicity
+combined_test_df$prob <- predict(log_reg_o3, newdata = combined_test_df, type = "response")
+combined_test_df$forecast <- ifelse(combined_test_df$prob >= 0.5, 1, 0)
+
+# Create confusion matrix
+confusionMatrix(data = factor(combined_test_df$forecast, levels = c(0, 1)),
+                                reference = factor(combined_test_df$O3_binary, levels = c(0, 1)))
+```
+
+```{r}
+# Plot LR model - ignore this chunk; quite messy 
+# Make df to combine all needed data
+# Combine the relevant columns into a data frame
+comparison_data <- data.frame(
+  Year = as.numeric(time(combined_test)),
+  Actual = combined_test_df$O3_binary,
+  LogisticRegression = combined_test_df$prob,
+  Forecast = combined_test_df$forecast
+)
+
+# Add the Previous Training Data to the data frame
+comparison_data <- rbind(
+  comparison_data,
+  data.frame(
+    Year = as.numeric(time(combined_train)),
+    Actual = combined_train_df$O3_binary,
+    LogisticRegression = NA,
+    Forecast = NA
+  )
+)
+
+# Plot the comparison
+ggplot(comparison_data, aes(x = Year)) +
+  geom_line(aes(y = Actual, color = "Actual")) +
+  geom_line(aes(y = LogisticRegression, color = "Logistic Regression")) +
+  geom_line(aes(y = Forecast, color = "Forecast")) +
+  labs(title = "Comparison of O3 Binary, Logistic Regression Predictions, and Forecast",
+       x = "Year",
+       y = "Value") +
+  scale_color_manual(values = c("Actual" = "blue", 
+                                "Logistic Regression" = "green", 
+                                "Forecast" = "red")) +
+  theme_minimal()
+```
