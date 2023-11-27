@@ -5,7 +5,10 @@ date: "November 10, 2023"
 output: pdf_document
 ---
 
-```{r, echo = FALSE, warning=FALSE}
+```{r, echo = FALSE}
+# Set seed for reproducability 
+set.seed(506)
+
 # Import packages
 library(readxl)
 library(tidyverse)
@@ -20,7 +23,6 @@ library(lmtest)
 library(tsibble)
 library(ggplot2)
 library(caret)
-set.seed(506)
 library(xts)
 library(corrplot)
 library(tsibbledata)
@@ -29,8 +31,6 @@ library(forecast)
 library(rpart)
 library(scales)
 library(lubridate)
-library(tseries)
-library(reshape2)
 ```
 
 ## Data Importing, Preprocessing, & EDA
@@ -81,13 +81,6 @@ summary(air_df)
 ### Data Pre-Processing
 
 ```{r}
-# Dimensions in Data Set
-print("Data set Dimensions")
-dim(air)
-# Data set Summary
-print("Dataset Summary")
-summary(air)
-
 # replace nulls with last value
 air <- na.locf(air_df, na.rm = FALSE)
 # create one datetime field from all individual date & time fields
@@ -99,7 +92,7 @@ head(air)
 
 ```{r EDA}
 #correlation matrix of (rounded to 2 decimal places)
-air_quality_corr = round(cor(air[c('PM2.5','PM10','SO2','NO2','CO','O3')]), 2)
+air_quality_corr = round(cor(air[c('PM2.5','PM10','SO2','NO2','CO','O3','TEMP','WSPM')]), 2)
 corrplot(air_quality_corr, method = 'number', order = 'FPC', type = 'upper', diag = FALSE, title="Correlation between the Air Pollutants", mar=c(0,0,1,0))
 #carbon monoxide, lead, ground-level ozone, nitrogen dioxide, particulate matter, and sulfur dioxide.
 
@@ -192,27 +185,6 @@ PM10.ts <- ts(air$PM10, start = c(2013,1), end = c(2017, 12), freq = 12)
 autoplot(PM10.ts) +
   theme_classic() +
   labs(x = "Date", y = "Diameter-Less-Than-10-Micrometer Particles Readings")
-```
-
-```{r}
-# Heatmap for O3 against weather variables
-# Select relevant columns
-selected_cols <- c("O3", "TEMP", "PRES", "DEWP", "RAIN", "WSPM")
-cor_data <- air %>%
-  select(all_of(selected_cols))
-# Calculate correlation matrix
-cor_mat <- cor(cor_data)
-cor_data <- reshape2::melt(cor_mat)
-# Create the heatmap using ggplot2
-ggplot(cor_data, aes(x = Var1, y = Var2, fill = value, label = round(value, 2))) +
-  geom_tile() +
-  geom_text(color = "black", size = 3) +  # Add correlations on heatmap
-  labs(title = "Correlation Heatmap of O3 Levels Against Weather Predictors") +
-  scale_fill_gradient2(low = "blue", mid = "white", high = "red",
-                     midpoint = 0, limits = c(-1, 1)) +
-theme(axis.text.x = element_text(angle = 45, hjust = 1), 
-    axis.title.x = element_blank(),  
-    axis.title.y = element_blank())
 ```
 
 
@@ -403,15 +375,174 @@ autoplot(O3_differenced) +
   geom_hline(yintercept = mean(O3_differenced), linetype = "dashed", color = "red")
 ```
 
+## Modeling
 
-``` {r forecastPlot}
-# Plot the model forecast.
-autoplot(window(O3.train, start = c(2013, 1)), series = 'Training') +
-  autolayer(window(O3.test, end = c(2017, 12)), series = 'Actual') +
-  autolayer(O3.pred, series = 'Prediction', alpha = .4) +
-  theme_classic() 
+### Modeling Exact Values
+
+```{r}
+# Create Time Series Object
+O3.daily.ts <- ts(air_daily$O3, start = c(2013,60), frequency = 365)
+
+# Training and test partitions
+O3.train2 <- window(O3.daily.ts, end = c(2016, 61))
+O3.test2 <- window(O3.daily.ts, start = c(2016, 62))
 ```
 
-```{r ResidualPlots}
-checkresiduals(O3.model)
+```{r}
+naive365 <- rwf(O3.train2, h = 365)
+snaive365 <- snaive(O3.train2, h = 365)
+modeled365 <- forecast(O3.train2, h = 365)
 ```
+
+```{r}
+autoplot(O3.train2) + 
+  autolayer(naive365, color = "green", PI = F) +
+  autolayer(O3.test2, color = "red") +
+  labs(title = "Time Series Plot of O3 Emissions",
+       x = "Time",
+       y = "Ground Ozone") 
+
+autoplot(O3.train2) + 
+  autolayer(snaive365, color = "green", PI = F) +
+  autolayer(O3.test2, color = "red") +
+  labs(title = "Time Series Plot of O3 Emissions",
+       x = "Time",
+       y = "Ground Ozone") 
+
+autoplot(O3.train2) + 
+  autolayer(modeled365, color = "green", PI = F) +
+  autolayer(O3.test2, color = "red") +
+  labs(title = "Time Series Plot of O3 Emissions",
+       x = "Time",
+       y = "Ground Ozone")
+
+autoplot(O3.train2, series = 'Training') +
+  labs(title = "Time Series Plot of O3 Emissions",
+       x = "Time",
+       y = "Ground Ozone") +
+  autolayer(O3.test2, series = 'Actual') +
+  autolayer(snaive365, series = 'Prediction', alpha = .4) +
+  theme_classic() +
+  coord_cartesian(ylim = c(0, 200))
+```
+
+```{r}
+accuracy_naive365 <- accuracy(naive365, O3.test2)
+accuracy_snaive365 <- accuracy(snaive365, O3.test2)
+accuracy_modeled365 <- accuracy(modeled365, O3.test2)
+
+accuracy_naive365
+accuracy_snaive365 
+accuracy_modeled365 
+```
+
+```{r modeling w external predictors}
+air_daily_ts <- ts(air_daily, start = c(2013, 60), frequency = 365)
+
+# Training and test partitions for the combined time series
+combined_train <- window(air_daily_ts, end = c(2016, 61))
+combined_test <- window(air_daily_ts, start = c(2016, 62))
+
+# Time series forecasting with external predictors
+# Target column index
+target_col_index <- which(colnames(combined_train) == "O3")
+
+# Time series auto arima forecasting with external predictor
+# Define a range of ARIMA parameters to search through
+arima_params <- list(order = c(0, 1, 2), seasonal = list(order = c(0, 1, 1), period = 365))
+
+# Fit ARIMA model using auto.arima with different parameter combinations
+arima_model <- auto.arima(combined_train[, target_col_index], xreg = combined_train[, -target_col_index], 
+                          seasonal = TRUE, approximation = FALSE, trace = TRUE, 
+                          stationary = FALSE, parallel = TRUE)
+
+# Forecast with the selected ARIMA model
+modeled365_combined <- forecast(arima_model, h = 365, xreg = combined_test[, -target_col_index])
+```
+
+```{r}
+# Plot for Modeled 365
+autoplot(combined_train[, "O3"]) +
+  autolayer(modeled365_combined, color = "green", PI = FALSE) +
+  autolayer(combined_test[, "O3"], color = "red") +
+  labs(title = "Time Series Plot of O3 Emissions with Modeled Forecast \nand External Predictors",
+       x = "Time",
+       y = "Ground Ozone")
+
+# Combined Plot with Seasonal Naive, Actual, and Prediction
+autoplot(combined_train[, "O3"], series = 'Training') +
+  labs(title = "Time Series Plot of O3 Emissions with Modeled Forecast \nand External Predictors",
+       x = "Time",
+       y = "Ground Ozone") +
+  autolayer(combined_test[, "O3"], series = 'Actual') +
+  autolayer(modeled365_combined, series = 'Prediction', alpha = 0.4) +
+  theme_classic() +
+  coord_cartesian(ylim = c(0, 200))
+```
+```{r}
+accuracy_modeled365_combined <- accuracy(modeled365_combined, combined_test[, "O3"])
+accuracy_modeled365_combined
+```
+
+```{r accuracy df}
+# Combine test set accuracy metrics for all 4 forecasts (with & without external predictors thus far)
+accuracy_df <- data.frame(
+  Model = c("Naive 365", "Seasonal Naive 365", "Modeled 365", "Combined Modeled 365"),
+  Test_Set_RMSE = c(accuracy_naive365[, "RMSE"][2], accuracy_snaive365[, "RMSE"][2], accuracy_modeled365[, "RMSE"][2],
+          accuracy_modeled365_combined[, "RMSE"][2]),
+  Test_Set_MAE = c(accuracy_naive365[, "MAE"][2], accuracy_snaive365[, "MAE"][2], accuracy_modeled365[, "MAE"][2],
+           accuracy_modeled365_combined[, "MAE"][2]),
+  Test_Set_MAPE = c(accuracy_naive365[, "MAPE"][2], accuracy_snaive365[, "MAPE"][2], accuracy_modeled365[, "MAPE"][2],
+           accuracy_modeled365_combined[, "MAPE"][2])
+)
+
+# Print the accuracy data frame
+print(accuracy_df)
+```
+
+
+### Modeling if Above/Below Threshold
+
+```{r}
+# Create Time Series Object
+# Threshold for above standard is 70 micrograms per cubic meter
+O3.daily.ts10 <- ifelse(O3.daily.ts > 70, "Yes", "No")
+O3.daily.ts10 <- as.numeric(O3.daily.ts10 == "Yes")
+
+O3.train10 <- ifelse(O3.train2 > 70, "Yes", "No")
+O3.test10 <- ifelse(O3.test2 > 70, "Yes", "No")
+O3.train10 <- as.numeric(O3.train10 == "Yes")
+O3.test10 <- as.numeric(O3.test10 == "Yes")
+```
+
+```{r, warning=FALSE}
+# Create a confusion matrix
+cat("Naive Forecast:\n")
+naive10_vals <- ifelse(naive365$mean > 70, 1, 0)
+
+cm_naive365 <- confusionMatrix(as.factor(round(naive10_vals)), 
+                            as.factor(round(O3.test10)))
+cm_naive365
+
+cat("\n\nSeasonal Naive Forecast:\n")
+snaive10_vals <- ifelse(snaive365$mean > 70, 1, 0)
+
+cm_snaive365 <- confusionMatrix(as.factor(round(snaive10_vals)), 
+                             as.factor(round(O3.test10)))
+cm_snaive365
+
+cat("\n\nModeled Forecast:\n")
+modeled10_vals <- ifelse(modeled365$mean > 70, 1, 0)
+
+cm_modeled365 <- confusionMatrix(as.factor(round(modeled10_vals)), 
+                             as.factor(round(O3.test10)))
+cm_modeled365
+
+cat("\n\nModeled with External Variables Forecast:\n")
+modeled_ext10_vals <- ifelse(modeled365_combined$mean > 70, 1, 0)
+cm_modeled_ext365 <- confusionMatrix(as.factor(round(modeled_ext10_vals)), 
+                             as.factor(round(O3.test10)))
+cm_modeled_ext365
+```
+
+
