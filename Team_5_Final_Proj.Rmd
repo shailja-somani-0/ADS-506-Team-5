@@ -336,10 +336,10 @@ lines(smoothed_values, col = "red", type = "l", lty = 2)
 legend("topright", legend = c("Original", "Smoothed"), col = c("blue", "red"), lty = c(1, 2))
 ```
 
-
 ```{r smoothing method 2}
 # Apply STL decomposition and forecasting
 stlf_model <- stlf(O3_d_TS)
+
 
 # Plot the original and smoothed time series
 plot(O3_d_TS, col = "blue", type = "l", lty = 1, xlab = "Time", ylab = "O3 Levels", main = "Original vs. Smoothed Time Series (STL)")
