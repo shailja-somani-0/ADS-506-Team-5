@@ -1,7 +1,7 @@
-# ADS-506-Team-5
+# Beijing-O3-Forecasting
 ADS 506 Fall 2023 Team 5 Final Project: Shailja Somani &amp; Caleb McCurdy
 
-# beijing-ozone-forecasting
+**-- Project Status: Completed**
 
 ## Installation
 To follow the steps used in this project, begin by executing the following:
@@ -52,3 +52,6 @@ Using daily ground-level ozone forecast predictions, we can allow for public hea
 
 
 ## Project and Presentation
+
+## Acknowledgments
+A special thanks to our University of San Diego Professor Erin Cooke, M.S. 
