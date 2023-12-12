@@ -73,7 +73,7 @@ TOAR: China is Hot Spot of Ground-Level Ozone Pollution. (2018, Aug 29) National
 Wang, W., Parrish, D. D., Wang, S., Bao, F., Ni, R., Li, X., Yang, S., Wang, H., Cheng, Y., & Su, H. (2022). Long-term trend of ozone pollution in China during 2014–2020: distinct seasonal and spatial characteristics and ozone sensitivity. Atmospheric Chemistry and Physics, 22(13), 8935–8949. https://doi.org/10.5194/acp-22-8935-2022. 
 
 
-## Project and Presentation
+## Project Report
 [Project Report](https://github.com/shailja-somani-0/ADS-506-Team-5/files/13644282/Team_5_Final_Paper.pdf)
 
 
