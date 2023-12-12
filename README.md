@@ -3,6 +3,7 @@ ADS 506 Fall 2023 Team 5 Final Project: Shailja Somani &amp; Caleb McCurdy
 
 **-- Project Status: Completed**
 
+
 ## Installation
 To follow the steps used in this project, begin by executing the following:
 
@@ -10,8 +11,10 @@ git init
 
 git clone https://github.com/shailja-somani-0/ADS-506-Team-5.git
 
+
 ## Contributors
 Authors: Shailja Somani, Caleb McCurdy
+
 
 ## Methods
 Data Exploration
@@ -31,18 +34,13 @@ Google Slides
 
 R Applications (RStudio)
 
+
 ## Abstract
 Using daily ground-level ozone forecast predictions, we can allow for public health agenices to warn Beijing residents to take precautions on days with high O3 pollution. These warnings can improve the overall public health through minimization of related ramifications. Additionally, the agriculture industry may use these predictions to make decisions with plant survival in mind.
 
+
 ## Problem Statement
-
-
-## Goals
-
-
-
-## Non-Goals
-
+The purpose of this project is to develop a forecast model that predicts the ground-level ozone levels in Beijing, China. This can be achieved by learning from a time series of O3 values with various external factors. First, we want to gain a better understanding of the time series data which can be achieved via exploratory data analysis. This will allow us to make decisions on how to proceed and learn which predictors may have greater influence on O3 levels. After later steps are taken such as preprocessing and model training, we will be able to make a recommendation on which forecast model to implement. Using this model, the public can gain a better sense of when this specific type of air pollution is worst and be better prepared. Specifically, we can make predictions on when the ground level ozone is above public health standard.
 
 
 ## Data Sources
@@ -74,7 +72,9 @@ TOAR: China is Hot Spot of Ground-Level Ozone Pollution. (2018, Aug 29) National
 
 Wang, W., Parrish, D. D., Wang, S., Bao, F., Ni, R., Li, X., Yang, S., Wang, H., Cheng, Y., & Su, H. (2022). Long-term trend of ozone pollution in China during 2014–2020: distinct seasonal and spatial characteristics and ozone sensitivity. Atmospheric Chemistry and 		Physics, 22(13), 8935–8949. https://doi.org/10.5194/acp-22-8935-2022. 
 
+
 ## Project and Presentation
+
 
 ## Acknowledgments
 A special thanks to our University of San Diego Professor Erin Cooke, M.S. 
